@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import *
-from moviepy.editor import VideoFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
 from PyQt5.QtGui import QPixmap, QImage, QPainter, QColor
 from PyQt5.QtCore import QEvent, QObject
+from PIL import Image
 
 from proglog import ProgressBarLogger
 
@@ -67,6 +68,20 @@ class MainWidget(QWidget):
 
         layout.addLayout(hlayout)
 
+        codecs = ["libx264", "mpeg4", "png", "rawvideo"]
+        codec_buttons = [QRadioButton(codec) for codec in codecs]
+        codec_buttons[0].setChecked(True)
+
+        self.codec_btngroup = QButtonGroup()
+        for btn in codec_buttons:
+            self.codec_btngroup.addButton(btn)
+
+        hlayout = QHBoxLayout()
+        for btn in codec_buttons:
+            hlayout.addWidget(btn)
+        
+        layout.addLayout(hlayout)
+
         hlayout = QHBoxLayout()
 
         flayout = QFormLayout()
@@ -105,7 +120,7 @@ class MainWidget(QWidget):
             roi = list(roi[0]) + list(roi[1])
 
             if self.save_path == "":
-                QMessageBox.about(self, "Error", f"Invalid Save Path")
+                QMessageBox.about(self, "Error", "Invalid Save Path")
                 return
             
             output_clip = self.video_clip.fl_image(lambda img: self.select_roi(img, roi))
@@ -113,9 +128,12 @@ class MainWidget(QWidget):
             logger = MyProgressBarLogger(self.progressbar, 
                     (fps if fps else self.video_clip.fps)*self.video_clip.duration
             )
-            output_clip.write_videofile(self.save_path, audio=False, fps=fps, logger=logger)
+
+            checked_codec = str(self.codec_btngroup.checkedButton().text())
+
+            output_clip.write_videofile(self.save_path, audio=False, fps=fps, logger=logger, codec=checked_codec)
         except:
-            QMessageBox.about(self, "Error", f"Invalid FPS or corners ({fps}, {roi})")
+            QMessageBox.about(self, "Error", "Invalid FPS or corners")
         
     def get_path(self):
         output = QFileDialog.getOpenFileName(self, "")
@@ -123,18 +141,20 @@ class MainWidget(QWidget):
         
         try:
             self.video_clip = VideoFileClip(self.video_path)
-            self.fps_label.setText(f"fps: (max {self.video_clip.fps:.2f}, type -1 for max fps)")
+            self.fps_label.setText("fps: (max "+"{:.2f}".format(self.video_clip.fps) + ", type -1 for max fps)")
             self.img_widget.set_frame(self.video_clip.get_frame(0))
-            self.selected_video.setText( f"Selected Video: {self.video_path}")
+            self.selected_video.setText( "Selected Video: " + self.video_path)
             self.progressbar.hide()
+            
+            Image.fromarray(self.video_clip.get_frame(0)).save("/tmp/thumb.png")
         except:
             QMessageBox.about(self, "Error", "Invalid Path.")
 
     def file_save(self):
         name = QFileDialog.getSaveFileName(self, 'Save File')[0]
-        self.save_path_label.setText(f"Save As: {name}")
-        if not name.lower().endswith("mp4"):
-            QMessageBox.about(self, "Error", "Invalid Name. File should end with .mp4")
+        self.save_path_label.setText("Save As: " +name)
+        if not name.lower().endswith("mp4") and not name.lower().endswith(".avi"):
+            QMessageBox.about(self, "Error", "Invalid Name. File should end with .mp4 or .avi")
         else:
             self.save_path = name
 
@@ -142,7 +162,8 @@ class MainWidget(QWidget):
     def update_rect(self):
         pt1,pt2 = self.img_widget.selected_corners
 
-        self.selected_corner_points.setText(f"Select corner points: 1. top left, 2. bottom right ({pt1},{pt2})")
+        append = "("+str(pt1[0]) + "," + str(pt1[1]) + ") (" +str(pt2[0]) + "," + str(pt1[1])+")"
+        self.selected_corner_points.setText("Select corner points: 1. top left, 2. bottom right " + append)
 
 class ImageWidget(QLabel):
 
@@ -160,6 +181,7 @@ class ImageWidget(QLabel):
     
     def set_frame(self, frame):
         h,w,c = frame.shape
+
         self.image_size = (w,h)
         self.pixmap = QPixmap.fromImage(QImage(frame, w, h, QImage.Format_RGB888))
 
@@ -168,7 +190,7 @@ class ImageWidget(QLabel):
         self.setFixedHeight(h)
 
         self.trigger_object.selected_corner_points.setText(
-                f"Select corner points: 1. top left, 2. bottom right - default ((0,0),{(w,h)})"
+                "Select corner points: 1. top left, 2. bottom right - default ((0,0),("+str(w)+","+str(h)+"))"
         )
 
     def paintEvent(self, e):
@@ -203,7 +225,7 @@ class ImageWidget(QLabel):
 
 
     def mousePressEvent(self, ev):
-        print(f"clicked {ev.x(), ev.y()}")
+        #print(f"clicked {ev.x(), ev.y()}")
         self.start_selection = not(self.start_selection)
         if len(self.selected_corners) == 2:
             self.selected_corners = []
@@ -211,7 +233,6 @@ class ImageWidget(QLabel):
             
         if len(self.selected_corners) == 2: 
             w,h = self.image_size
-            print((w,h))
             for idx,(x,y) in enumerate(self.selected_corners):
                 if x < 6:
                     x = 0
@@ -224,7 +245,11 @@ class ImageWidget(QLabel):
 
                 self.selected_corners[idx] = (x,y)
 
+            # TODO remove this
+            self.selected_corners = [[0,162],[1280,543+162]]
+
             self.trigger_object.update_rect()
+
 
     def mouseMoveEvent(self, ev):
         self.update()

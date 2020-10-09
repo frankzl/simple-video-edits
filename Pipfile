@@ -1,0 +1,15 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pyinstaller = "*"
+
+[packages]
+moviepy = "*"
+pyqt5 = "==5.9.2"
+pyinstaller = "*"
+
+[requires]
+python_version = "3.6"

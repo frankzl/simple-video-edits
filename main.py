@@ -1,4 +1,4 @@
-from code.main_widget import MainWidget
+from mainwidget import MainWidget
 from PyQt5.QtWidgets import QApplication
 
 
