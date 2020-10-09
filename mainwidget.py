@@ -245,8 +245,7 @@ class ImageWidget(QLabel):
 
                 self.selected_corners[idx] = (x,y)
 
-            # TODO remove this
-            self.selected_corners = [[0,162],[1280,543+162]]
+            #self.selected_corners = [[0,162],[1280,543+162]]
 
             self.trigger_object.update_rect()
 
